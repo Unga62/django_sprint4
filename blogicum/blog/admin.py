@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import Group
 
-from .models import Category, Post, Location
+from .models import Category, Post, Location, Comment
 
 
 @admin.register(Post)
@@ -54,6 +54,16 @@ class LocationModel(admin.ModelAdmin):
         'name',
         'is_published',
         'created_at',
+    )
+
+
+@admin.register(Comment)
+class CommetModel(admin.ModelAdmin):
+    list_display = (
+        'author',
+        'text',
+        'created_at',
+        'post',
     )
 
 

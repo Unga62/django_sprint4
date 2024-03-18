@@ -1,3 +1,3 @@
 MAX_LINE_SIZE: int = 256
 LINE_SLICE: int = 15
-POST_SLICE: int = 5
+POST_SLICE: int = 10

@@ -14,6 +14,7 @@ class Post(PublishedModel, TitleModel):
                                     help_text='Если установить дату и время в'
                                     ' будущем — можно делать'
                                     ' отложенные публикации.')
+    image = models.ImageField('Фото', upload_to='post_images', blank=True)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -37,7 +38,7 @@ class Post(PublishedModel, TitleModel):
     class Meta:
         verbose_name = 'публикация'
         verbose_name_plural = 'Публикации'
-        ordering = ('-pub_date',)
+        ordering = ('-pub_date', 'title')
 
 
 class Category(PublishedModel, TitleModel):
@@ -62,3 +63,28 @@ class Location(PublishedModel):
 
     def __str__(self) -> str:
         return self.name[:LINE_SLICE]
+
+
+class Comment(models.Model):
+    text = models.TextField(max_length=256,
+                            verbose_name='Текст комментария')
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        null=True,
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Автор комментария'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
+        ordering = ('created_at',)
+
+    def __str__(self) -> str:
+        return f'{self.author}: {self.text[:50]}'
