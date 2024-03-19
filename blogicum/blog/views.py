@@ -8,6 +8,7 @@ from django.views.generic import (
 )
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse_lazy
+from django.http import Http404
 from blog.models import Post, Category, User, Comment
 from blog.config import POST_SLICE
 from blog.forms import PostForm, CommentForm
@@ -27,6 +28,13 @@ class PaginateMixin:
     paginate_by = POST_SLICE
 
 
+class CheckMixin:
+    def dispatch(self, request, *args, **kwargs):
+        if self.get_object().author != request.user:
+            return redirect('blog:post_detail', pk=self.kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+
 class RedirectionMixin:
     def get_success_url(self):
         return reverse_lazy('blog:profile', kwargs={
@@ -34,12 +42,12 @@ class RedirectionMixin:
         )
 
 
-class DetailandDeleteMixin:
+class PostDetailandDeleteMixin:
     model = Post
     template_name = 'blog/detail.html'
 
 
-class EditandCreateMixin:
+class PostEditandCreateMixin:
     model = Post
     form_class = PostForm
     template_name = 'blog/create.html'
@@ -58,14 +66,9 @@ class CommentMixin:
 
 class CommentEditDelete(CommentMixin):
 
-    def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != request.user:
-            return redirect('blog:post_detail', pk=self.kwargs['id'])
-        return super().dispatch(request, *args, **kwargs)
-
     def get_success_url(self):
         return reverse_lazy(
-            'blog:post_detail', kwargs={'id': self.kwargs['id']}
+            'blog:post_detail', kwargs={'pk': self.kwargs['pk']}
         )
 
 
@@ -120,7 +123,8 @@ class EditProfileViews(LoginRequiredMixin, RedirectionMixin, UpdateView):
         return self.request.user
 
 
-class PostCreateViews(LoginRequiredMixin, RedirectionMixin, EditandCreateMixin,
+class PostCreateViews(LoginRequiredMixin, RedirectionMixin,
+                      PostEditandCreateMixin,
                       CreateView):
     """CBV для создание новых постов"""
 
@@ -141,31 +145,34 @@ class PostIndexView(PaginateMixin, ListView):
         return posts
 
 
-class PostEditView(LoginRequiredMixin, EditandCreateMixin, UpdateView):
+class PostEditView(LoginRequiredMixin, CheckMixin,
+                   PostEditandCreateMixin, UpdateView):
     """СBV для редактирования поста"""
 
-    pk_url_kwarg = 'id'
+    pk_url_kwarg = 'pk'
     exclude = ('pub_date',)
-
-    def dispatch(self, request, *args, **kwargs):
-        if self.get_object().author != request.user:
-            return redirect('blog:post_detail', pk=self.kwargs['id'])
-        return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         return reverse_lazy(
-            'blog:post_detail', kwargs={'id': self.kwargs['id']}
+            'blog:post_detail', kwargs={'pk': self.kwargs['pk']}
         )
 
 
-class PostDetailView(DetailandDeleteMixin, DetailView):
+class PostDetailView(PostDetailandDeleteMixin, DetailView):
     """CBV для отоброжения отдельного поста и коммента"""
 
-    def get_object(self):
-        return get_object_or_404(
-            Post.objects.select_related('author', 'location', 'category',
-                                        ).filter(postpublished(),
-                                                 pk=self.kwargs['id']))
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        post = self.object
+        if not post.is_published or (
+            post.category and not post.category.is_published
+        ):
+            if request.user.is_authenticated and request.user == post.author:
+                return super().dispatch(request, *args, **kwargs)
+            raise Http404('Page not found')
+        if post.pub_date > timezone.now() and request.user != post.author:
+            raise Http404('Page not found')
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -176,7 +183,8 @@ class PostDetailView(DetailandDeleteMixin, DetailView):
         return context
 
 
-class PostDeleteView(RedirectionMixin, DetailandDeleteMixin, DeleteView):
+class PostDeleteView(LoginRequiredMixin, RedirectionMixin, CheckMixin,
+                     PostDetailandDeleteMixin, DeleteView):
     """CBV для удаления поста"""
 
     def form_valid(self, form):
@@ -189,7 +197,7 @@ class PostCommentView(LoginRequiredMixin, CommentMixin,
     """CBV для добавления комментариев"""
 
     def dispatch(self, request, *args, **kwargs):
-        self.comment_edit = get_object_or_404(Post, pk=kwargs['id'])
+        self.comment_edit = get_object_or_404(Post, pk=kwargs['pk'])
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -199,18 +207,18 @@ class PostCommentView(LoginRequiredMixin, CommentMixin,
 
     def get_success_url(self):
         return reverse_lazy('blog:post_detail', kwargs={
-            'id': self.comment_edit.pk}
+            'pk': self.comment_edit.pk}
         )
 
 
-class PostEditCommentView(CommentEditDelete, LoginRequiredMixin,
-                          UpdateView):
+class PostEditCommentView(LoginRequiredMixin, CommentEditDelete,
+                          CheckMixin, UpdateView):
     """CBV для редактирование комментариев"""
 
     pass
 
 
-class PostDeleteCommentView(CommentEditDelete, LoginRequiredMixin,
+class PostDeleteCommentView(LoginRequiredMixin, CommentEditDelete, CheckMixin,
                             DeleteView):
     """CBV для удаления комментариев"""
 
