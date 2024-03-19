@@ -1,4 +1,3 @@
-from django.db.models.base import Model as Model
 from django.db.models import Count
 from django.shortcuts import redirect, get_object_or_404
 from django.db.models import Q
