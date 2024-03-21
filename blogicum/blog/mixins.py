@@ -1,31 +1,10 @@
-from django.db.models import Count
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils import timezone
 
-from blog.models import Comment, Post
-from blog.forms import CommentForm, PostForm
 from blog.config import POST_SLICE
-
-
-def post_published():
-    """Функция возвращает проверки.
-
-    Времени,
-    флага публикации,
-    публикации категории.
-    """
-    return Post.objects.select_related(
-        'author',
-        'location',
-        'category',
-    ).filter(
-        pub_date__lte=timezone.now(),
-        is_published=True,
-        category__is_published=True,
-    ).annotate(
-        comment_count=Count('comments')
-    ).order_by('-pub_date')
+from blog.forms import CommentForm, PostForm
+from blog.models import Comment, Post
+from blog.postpublished import post_published
 
 
 class PaginateMixin:

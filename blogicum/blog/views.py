@@ -1,19 +1,18 @@
-from django.db.models import Count
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.views.generic import (
     CreateView, DeleteView, DetailView, ListView, UpdateView
 )
-from django.shortcuts import get_object_or_404
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.urls import reverse, reverse_lazy
-from django.utils import timezone
 
-from blog.models import Category, Post, User
 from blog.forms import CommentForm, PostForm
 from blog.mixins import (
     CheckMixin, PaginateMixin, PostEditandCreateMixin,
     PostDetailandDeleteMixin, BasicPostViewMixin,
     RedirectionMixin, CommentMixin, CommentEditDelete,
 )
+from blog.models import Category, Post, User
+from blog.postpublished import post_profile, post_published
 
 
 class ProfileViews(BasicPostViewMixin, ListView):
@@ -28,12 +27,17 @@ class ProfileViews(BasicPostViewMixin, ListView):
             User,
             username=self.kwargs['username']
         )
-        posts = posts.filter(
+        posts = post_profile().filter(
             author=self.profile
-        ).annotate(comment_count=Count('comments')).order_by('-pub_date')
+        ).select_related(
+            'author',
+            'location',
+            'category',
+        )
         if self.request.user != self.profile:
-            posts = super().get_queryset().annotate(
-                comment_count=Count('comments'))
+            posts = super().get_queryset().filter(
+                author=self.profile
+            )
         return posts
 
     def get_context_data(self, **kwargs):
@@ -92,10 +96,7 @@ class PostDetailView(PostDetailandDeleteMixin, DetailView):
         post = get_object_or_404(Post, pk=self.kwargs['post_id'])
         if self.request.user == post.author:
             return post
-        return get_object_or_404(
-            Post, is_published=True, category__is_published=True,
-            pub_date__lt=timezone.now(), pk=self.kwargs['post_id']
-        )
+        return get_object_or_404(post_published(), pk=self.kwargs['post_id'])
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -134,7 +135,7 @@ class CreateCommentView(LoginRequiredMixin, CommentMixin,
         return super().form_valid(form)
 
     def get_success_url(self):
-        return reverse_lazy('blog:post_detail', kwargs={
+        return reverse('blog:post_detail', kwargs={
             'post_id': self.kwargs['post_id']}
         )
 
@@ -160,14 +161,13 @@ class CategoryPostsView(BasicPostViewMixin, ListView):
     template_name = 'blog/category.html'
 
     def get_queryset(self):
-        category_slug = self.kwargs['category_slug']
         self.category = get_object_or_404(
             Category,
             slug=self.kwargs['category_slug'],
             is_published=True
         )
         return super().get_queryset().filter(
-            category__slug=category_slug
+            category=self.category
         )
 
     def get_context_data(self, **kwargs):

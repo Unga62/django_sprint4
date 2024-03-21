@@ -1,5 +1,6 @@
 from django import forms
 from .models import Post, Comment
+
 from blog.config import COLS_SLICE, ROWS_SLICE
 
 
