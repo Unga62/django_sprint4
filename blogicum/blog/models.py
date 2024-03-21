@@ -1,24 +1,28 @@
-from django.db import models
 from django.contrib.auth import get_user_model
+from django.db import models
 
 from abstractions.models import PublishedModel, TitleModel
-from blog.config import MAX_LINE_SIZE, LINE_SLICE
+from blog.config import LINE_SLICE, MAX_LINE_SIZE, TEXT_SLICE
 
 User = get_user_model()
 
 
 class Post(PublishedModel, TitleModel):
     text = models.TextField(verbose_name='Текст')
-    pub_date = models.DateTimeField(auto_now_add=False,
-                                    verbose_name='Дата и время публикации',
-                                    help_text='Если установить дату и время в'
-                                    ' будущем — можно делать'
-                                    ' отложенные публикации.')
+    pub_date = models.DateTimeField(
+        auto_now_add=False,
+        verbose_name='Дата и время публикации',
+        help_text=(
+            'Если установить дату и время в будущем — можно делать'
+            'отложенные публикации.'
+        )
+    )
     image = models.ImageField('Фото', upload_to='post_images', blank=True)
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         verbose_name='Автор публикации',
+        related_name='posts',
     )
     location = models.ForeignKey(
         'Location',
@@ -77,7 +81,8 @@ class Comment(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        verbose_name='Автор комментария'
+        verbose_name='Автор комментария',
+        related_name='comments',
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -87,4 +92,4 @@ class Comment(models.Model):
         ordering = ('created_at',)
 
     def __str__(self) -> str:
-        return f'{self.author}: {self.text[:50]}'
+        return f'{self.author}: {self.text[:TEXT_SLICE]}'

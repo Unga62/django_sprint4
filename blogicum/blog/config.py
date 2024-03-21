@@ -1,3 +1,6 @@
 MAX_LINE_SIZE: int = 256
 LINE_SLICE: int = 15
 POST_SLICE: int = 10
+TEXT_SLICE: int = 50
+COLS_SLICE: int = 10
+ROWS_SLICE: int = 5
