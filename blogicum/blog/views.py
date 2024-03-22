@@ -12,7 +12,7 @@ from blog.mixins import (
     RedirectionMixin, CommentMixin, CommentEditDelete,
 )
 from blog.models import Category, Post, User
-from blog.postpublished import post_profile, post_published
+from blog.post_filter_published import post_filter_count, post_published
 
 
 class ProfileViews(BasicPostViewMixin, ListView):
@@ -27,12 +27,8 @@ class ProfileViews(BasicPostViewMixin, ListView):
             User,
             username=self.kwargs['username']
         )
-        posts = post_profile().filter(
+        posts = post_filter_count(posts).filter(
             author=self.profile
-        ).select_related(
-            'author',
-            'location',
-            'category',
         )
         if self.request.user != self.profile:
             posts = super().get_queryset().filter(

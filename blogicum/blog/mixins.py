@@ -4,7 +4,7 @@ from django.urls import reverse
 from blog.config import POST_SLICE
 from blog.forms import CommentForm, PostForm
 from blog.models import Comment, Post
-from blog.postpublished import post_published
+from blog.post_filter_published import post_published
 
 
 class PaginateMixin:
